@@ -15,6 +15,9 @@ Derived from defined functionality:
 # Process
 1. Build basic in-memory solution. With an ability to sell/buy invoice. Define basic data structures.
 
+# Considirations:
+So far all of the processes should be a single transaction in a database.
+PlaceBid\Approve\Reverse should Commit or Rollback all write operations at the end.
 
 # Decisions
 
