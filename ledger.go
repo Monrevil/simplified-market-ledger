@@ -19,10 +19,10 @@ func (l *Ledger) SellInvoice(iss issuers.Issuer, in invoices.Invoice) {
 
 	in.Status = invoices.Available
 	in.PutForSale = time.Now()
-	tx.Invoices.SaveInvoice(in)
+	tx.Invoices.SaveInvoice(&in)
 }
 
-func (l *Ledger) PlaceBid(investorID uint, invoiceID int, amount int) error {
+func (l *Ledger) PlaceBid(investorID uint, invoiceID uint, amount int) error {
 	tx := l.r.Begin()
 
 	investor, err := tx.Investors.GetInvestor(investorID)
@@ -33,7 +33,7 @@ func (l *Ledger) PlaceBid(investorID uint, invoiceID int, amount int) error {
 		return fmt.Errorf("can not bid %d, with %d balance. Not enough funds", amount, investor.Balance)
 	}
 
-	err = tx.Investors.ReserveBalance(investorID, amount)
+	err = tx.Investors.ReserveBalance(&investor, amount)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func (l *Ledger) PlaceBid(investorID uint, invoiceID int, amount int) error {
 
 	if invoice.Value > amount || invoice.Status != invoices.Available {
 		// TODO: Should be transactional
-		tx.Investors.ReleaseBalance(investorID, amount)
+		tx.Investors.ReleaseBalance(&investor, amount)
 		tx.Transactions.UpdateTransaction(transactions.Transaction{
 			ID:       uint(transactionID),
 			Status:   transactions.Rejected,
@@ -69,7 +69,7 @@ func (l *Ledger) PlaceBid(investorID uint, invoiceID int, amount int) error {
 
 	// If bid amount is not the exact value of an invoice - release surplus to the available balance
 	if invoice.Value != amount {
-		tx.Investors.ReleaseBalance(investorID, amount-invoice.Value)
+		tx.Investors.ReleaseBalance(&investor, amount-invoice.Value)
 	}
 
 	return nil
@@ -100,7 +100,7 @@ func (l *Ledger) Approve(transactionID uint) error {
 	tx.Transactions.UpdateTransaction(transaction)
 	// TODO Should be Transactional:
 	tx.Invoices.UpdateInvoice(invoice)
-	tx.Investors.ChangeReservedBalance(transaction.InvestorID, transaction.Amount)
+	tx.Investors.ReduceReservedBalance(&investor, transaction.Amount)
 	tx.Issuers.ChangeBalance(transaction.IssuerID, transaction.Amount)
 
 	return nil
@@ -112,9 +112,13 @@ func (l *Ledger) Reverse(transactionID uint) error {
 	if err != nil {
 		return err
 	}
+	investor, err := tx.Investors.GetInvestor(transaction.InvestorID)
+	if err != nil {
+		return err
+	}
 
 	// TODO Should be Transactional:
-	tx.Investors.ReleaseBalance(transaction.InvestorID, transaction.Amount)
+	tx.Investors.ReleaseBalance(&investor, transaction.Amount)
 	transaction.Status = transactions.Reversed
 	tx.Transactions.UpdateTransaction(transaction)
 	tx.Invoices.UpdateInvoice(invoices.Invoice{ID: transaction.InvoiceID, Status: invoices.Available})

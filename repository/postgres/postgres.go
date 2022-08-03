@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"fmt"
+
 	"github.com/Monrevil/simplified-market-ledger/investors"
 	"github.com/Monrevil/simplified-market-ledger/invoices"
 	"github.com/Monrevil/simplified-market-ledger/issuers"
@@ -75,40 +77,69 @@ type PostgresInvestorsRepository struct {
 	db *gorm.DB
 }
 
+func (p *PostgresInvestorsRepository) NewInvestor(investor *investors.Investor) error {
+	return p.db.Create(investor).Error
+}
+
 func (p *PostgresInvestorsRepository) GetInvestor(investorID uint) (investors.Investor, error) {
 	investor := investors.Investor{}
 	err := p.db.First(&investor, investorID).Error
 	return investor, err
 }
 
-func (p *PostgresInvestorsRepository) ReserveBalance(investorID uint, amount int) error {
-	investor := &investors.Investor{ID: investorID}
+// ReserveBalance expects ID to be set for the investor
+func (p *PostgresInvestorsRepository) ReserveBalance(investor *investors.Investor, amount int) error {
+	if err := p.db.First(investor).Error; err != nil {
+		return err
+	}
+
+	if investor.Balance < amount {
+		return fmt.Errorf("not enough funds. Tired to reserve %v funds. With %v active balance", amount, investor.Balance)
+	}
+
 	err := p.db.Model(investor).Update("balance", gorm.Expr("balance - ?", amount)).Error
 	if err != nil {
 		return err
 	}
-	p.db.Model(investor).Update("reserved_balance", gorm.Expr("balance + ?", amount))
+	err = p.db.Model(investor).Update("reserved_balance", gorm.Expr("reserved_balance + ?", amount)).Error
 	if err != nil {
 		return err
 	}
+
+	if err := p.db.First(investor).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
-func (p *PostgresInvestorsRepository) ReleaseBalance(investorID uint, amount int) error {
-	investor := &investors.Investor{ID: investorID}
-	err := p.db.Model(investor).Update("balance", gorm.Expr("balance + ?", amount)).Error
+func (p *PostgresInvestorsRepository) ReleaseBalance(investor *investors.Investor, amount int) error {
+	if err := p.db.First(investor).Error; err != nil {
+		return err
+	}
+	if investor.ReservedBalance < amount {
+		return fmt.Errorf("not enough funds. Tired to release %v funds. With %v reserved balance", amount, investor.ReservedBalance)
+	}
+
+	err := p.db.Model(investor).Update("reserved_balance", gorm.Expr("reserved_balance - ?", amount)).Error
 	if err != nil {
 		return err
 	}
-	p.db.Model(investor).Update("reserved_balance", gorm.Expr("balance - ?", amount))
+	err = p.db.Model(investor).Update("balance", gorm.Expr("balance + ?", amount)).Error
 	if err != nil {
+		return err
+	}
+	if err := p.db.First(investor).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *PostgresInvestorsRepository) ChangeReservedBalance(investorID uint, amount int) error {
-	investor := &investors.Investor{ID: investorID}
-	err := p.db.Model(investor).Update("balance", gorm.Expr("balance + ?", amount)).Error
+func (p *PostgresInvestorsRepository) ReduceReservedBalance(investor *investors.Investor, amount int) error {
+	if investor.ID == 0 {
+		return fmt.Errorf("please provide non-0 investor id")
+	}
+	investor.ReservedBalance -= amount
+	err := p.db.Model(investor).Update("reserved_balance", gorm.Expr("reserved_balance - ?", amount)).Error
 
 	return err
 }
@@ -125,10 +156,10 @@ type PostgresInvoicesRepository struct {
 	db *gorm.DB
 }
 
-func (p *PostgresInvoicesRepository) SaveInvoice(invoice invoices.Invoice) error {
-	return p.db.Save(&invoice).Error
+func (p *PostgresInvoicesRepository) SaveInvoice(invoice *invoices.Invoice) error {
+	return p.db.Create(&invoice).Error
 }
-func (p *PostgresInvoicesRepository) GetInvoice(invoiceID int) (invoices.Invoice, error) {
+func (p *PostgresInvoicesRepository) GetInvoice(invoiceID uint) (invoices.Invoice, error) {
 	invoice := invoices.Invoice{}
 	err := p.db.First(&invoice, invoiceID).Error
 	return invoice, err
@@ -141,6 +172,14 @@ func (p *PostgresInvoicesRepository) UpdateInvoice(invoice invoices.Invoice) err
 
 type PostgresIssuersRepository struct {
 	db *gorm.DB
+}
+
+func (p *PostgresIssuersRepository) NewIssuer(iss *issuers.Issuer) error {
+	return p.db.Create(iss).Error
+}
+
+func (p *PostgresIssuersRepository) GetIssuer(iss *issuers.Issuer) error {
+	return p.db.First(iss).Error
 }
 
 func (p *PostgresIssuersRepository) ChangeBalance(id uint, amount int) error {
