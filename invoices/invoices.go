@@ -3,9 +3,9 @@ package invoices
 import "time"
 
 type Repository interface {
-	SaveInvoice(Invoice) error
-	GetInvoice(int) (Invoice, error)
-	UpdateInvoice(Invoice) error
+	SaveInvoice(invoice Invoice) error
+	GetInvoice(invoiceID int) (Invoice, error)
+	UpdateInvoice(invoice Invoice) error
 }
 
 type Invoice struct {

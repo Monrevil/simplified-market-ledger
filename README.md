@@ -19,6 +19,9 @@ Derived from defined functionality:
 So far all of the processes should be a single transaction in a database.
 PlaceBid\Approve\Reverse should Commit or Rollback all write operations at the end.
 
+# Q? 
+1. Ledger should reflect bids that where smaller than an invoice value in database? They should be recorded, with status rejected.
+
 # Decisions
 
 ## Single go module (go.mod file)

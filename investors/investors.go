@@ -1,11 +1,10 @@
 package investors
 
 type Repository interface {
-	GetInvestor(uint) (Investor, error)
-	// (InvestorID, Amount)
-	ReserveBalance(uint, int) error
-	ReleaseBalance(uint, int) error
-	ChangeReservedBalance(uint, int) error
+	GetInvestor(investorID uint) (Investor, error)
+	ReserveBalance(investorID uint, amount int) error
+	ReleaseBalance(investorID uint, amount int) error
+	ChangeReservedBalance(investorID uint, amount int) error
 	ListInvestors() []Investor
 }
 

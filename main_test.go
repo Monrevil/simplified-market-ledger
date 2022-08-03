@@ -6,6 +6,7 @@ import (
 
 	"github.com/Monrevil/simplified-market-ledger/investors"
 	"github.com/Monrevil/simplified-market-ledger/issuers"
+	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
 )
 
 func TestE2E(t *testing.T) {
@@ -35,10 +36,7 @@ func TestE2E(t *testing.T) {
 	}
 
 	ledger := Ledger{
-		invoicesRepository:    nil,
-		issuersRepository:     nil,
-		investorsRepository:   nil,
-		transactionRepository: nil,
+		r: *postgres.NewPostgresRepository(),
 	}
 
 	fmt.Println(&ledger, issuers, investors)

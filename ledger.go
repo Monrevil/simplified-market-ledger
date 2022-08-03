@@ -4,27 +4,28 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Monrevil/simplified-market-ledger/investors"
 	"github.com/Monrevil/simplified-market-ledger/invoices"
 	"github.com/Monrevil/simplified-market-ledger/issuers"
+	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
 	"github.com/Monrevil/simplified-market-ledger/transactions"
 )
 
 type Ledger struct {
-	invoicesRepository    invoices.Repository
-	issuersRepository     issuers.Repository
-	investorsRepository   investors.Repository
-	transactionRepository transactions.Repository
+	r postgres.PostgresRepository
 }
 
 func (l *Ledger) SellInvoice(iss issuers.Issuer, in invoices.Invoice) {
+	tx := l.r.Begin()
+
 	in.Status = invoices.Available
 	in.PutForSale = time.Now()
-	l.invoicesRepository.SaveInvoice(in)
+	tx.Invoices.SaveInvoice(in)
 }
 
 func (l *Ledger) PlaceBid(investorID uint, invoiceID int, amount int) error {
-	investor, err := l.investorsRepository.GetInvestor(investorID)
+	tx := l.r.Begin()
+
+	investor, err := tx.Investors.GetInvestor(investorID)
 	if err != nil {
 		return err
 	}
@@ -32,8 +33,7 @@ func (l *Ledger) PlaceBid(investorID uint, invoiceID int, amount int) error {
 		return fmt.Errorf("can not bid %d, with %d balance. Not enough funds", amount, investor.Balance)
 	}
 
-	// TODO: should be transactional:
-	err = l.investorsRepository.ReserveBalance(investorID, amount)
+	err = tx.Investors.ReserveBalance(investorID, amount)
 	if err != nil {
 		return err
 	}
@@ -41,18 +41,16 @@ func (l *Ledger) PlaceBid(investorID uint, invoiceID int, amount int) error {
 	// Matching Algorithm
 	// After the matching algorithm executes, it releases to the investor the part of the reserved
 	// balance that wasn’t used, then investor-3 available balance increases by €200.
-	invoice, err := l.invoicesRepository.GetInvoice(invoiceID)
+	invoice, err := tx.Invoices.GetInvoice(invoiceID)
 	if err != nil {
 		return err
 	}
-	transactionID, err := l.transactionRepository.CreateTransaction(transactions.Transaction{
+	transactionID, err := tx.Transactions.CreateTransaction(transactions.Transaction{
 		Amount:     amount,
 		Status:     transactions.Pending,
 		InvoiceID:  uint(invoiceID),
 		IssuerID:   invoice.IssuerId,
 		InvestorID: investorID,
-		CreatedAt:  time.Now(),
-		UpdateAt:   time.Now(),
 	})
 	if err != nil {
 		return err
@@ -60,8 +58,8 @@ func (l *Ledger) PlaceBid(investorID uint, invoiceID int, amount int) error {
 
 	if invoice.Value > amount || invoice.Status != invoices.Available {
 		// TODO: Should be transactional
-		l.investorsRepository.ReleaseBalance(investorID, amount)
-		l.transactionRepository.UpdateTransaction(transactions.Transaction{
+		tx.Investors.ReleaseBalance(investorID, amount)
+		tx.Transactions.UpdateTransaction(transactions.Transaction{
 			ID:       uint(transactionID),
 			Status:   transactions.Rejected,
 			UpdateAt: time.Now(),
@@ -71,18 +69,20 @@ func (l *Ledger) PlaceBid(investorID uint, invoiceID int, amount int) error {
 
 	// If bid amount is not the exact value of an invoice - release surplus to the available balance
 	if invoice.Value != amount {
-		l.investorsRepository.ReleaseBalance(investorID, amount-invoice.Value)
+		tx.Investors.ReleaseBalance(investorID, amount-invoice.Value)
 	}
 
 	return nil
 }
 
 func (l *Ledger) Approve(transactionID uint) error {
-	transaction, err := l.transactionRepository.GetTransaction(transactionID)
+	tx := l.r.Begin()
+
+	transaction, err := tx.Transactions.GetTransaction(transactionID)
 	if err != nil {
 		return err
 	}
-	investor, err := l.investorsRepository.GetInvestor(transaction.InvestorID)
+	investor, err := tx.Investors.GetInvestor(transaction.InvestorID)
 	if err != nil {
 		return err
 	}
@@ -97,26 +97,27 @@ func (l *Ledger) Approve(transactionID uint) error {
 	}
 	transaction.Status = transactions.Approved
 
-	l.transactionRepository.UpdateTransaction(transaction)
+	tx.Transactions.UpdateTransaction(transaction)
 	// TODO Should be Transactional:
-	l.invoicesRepository.UpdateInvoice(invoice)
-	l.investorsRepository.ChangeReservedBalance(transaction.InvestorID, transaction.Amount)
-	l.issuersRepository.ChangeBalance(transaction.IssuerID, transaction.Amount)
+	tx.Invoices.UpdateInvoice(invoice)
+	tx.Investors.ChangeReservedBalance(transaction.InvestorID, transaction.Amount)
+	tx.Issuers.ChangeBalance(transaction.IssuerID, transaction.Amount)
 
 	return nil
 }
 
 func (l *Ledger) Reverse(transactionID uint) error {
-	transaction, err := l.transactionRepository.GetTransaction(transactionID)
+	tx := l.r.Begin()
+	transaction, err := tx.Transactions.GetTransaction(transactionID)
 	if err != nil {
 		return err
 	}
 
 	// TODO Should be Transactional:
-	l.investorsRepository.ReleaseBalance(transaction.InvestorID, transaction.Amount)
+	tx.Investors.ReleaseBalance(transaction.InvestorID, transaction.Amount)
 	transaction.Status = transactions.Reversed
-	l.transactionRepository.UpdateTransaction(transaction)
-	l.invoicesRepository.UpdateInvoice(invoices.Invoice{ID: transaction.InvoiceID, Status: invoices.Available})
+	tx.Transactions.UpdateTransaction(transaction)
+	tx.Invoices.UpdateInvoice(invoices.Invoice{ID: transaction.InvoiceID, Status: invoices.Available})
 
 	return nil
 }

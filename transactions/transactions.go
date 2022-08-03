@@ -4,8 +4,8 @@ import "time"
 
 type Repository interface {
 	GetTransaction(transactionID uint) (Transaction, error)
-	CreateTransaction(Transaction) (int, error)
-	UpdateTransaction(Transaction) error
+	CreateTransaction(tr Transaction) (int, error)
+	UpdateTransaction(tr Transaction) error
 }
 
 type Transaction struct {
