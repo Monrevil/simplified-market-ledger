@@ -9,7 +9,7 @@ type Repository interface {
 }
 
 type Investor struct {
-	ID              uint
+	ID              int32
 	FirstName       string
 	LastName        string
 	Balance         int

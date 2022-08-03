@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+option go_package = "github.com/Monrevil/simplified-market-ledger/api";
+
+package api;
+
+service Ledger {
+    rpc SellInvoice(SellInvoiceReq) returns (SellInvoiceResp){}
+    rpc GetInvoice(GetInvoiceReq) returns (Invoice) {}
+    rpc ListInvoices(ListInvoicesReq) returns (ListInvoicesResp) {}
+    rpc PlaceBid(PlaceBidReq) returns (PlaceBidResp){}
+    rpc ApproveFinancing(ApproveReq) returns (ApproveResp){}
+    rpc ReverseFinancing(ReverseReq) returns (ReverseResp){}
+    rpc ListInvestors(ListInvestorsReq) returns (ListInvestorsResp){}
+}
+
+message SellInvoiceReq {
+    int32 IssuerID = 1;
+    int32 InvoiceValue =2;
+}
+
+message SellInvoiceResp {
+    int32 InvoiceID =1;
+}
+
+message ListInvoicesReq {
+}
+
+message GetInvoiceReq{
+    int32 InvoiceID =1;
+}
+
+message Invoice {
+    int32 ID =1;
+    int32 Value =2;
+    int32 OwnerID =3;
+    string Status =4;
+}
+
+message ListInvoicesResp {
+    repeated Invoice InvoicesList=1;
+}
+
+message PlaceBidReq {
+    int32 InvestorID =1;
+    int32 InvoiceID =2;
+    int32 Amount =3;
+}
+
+message PlaceBidResp {
+    string Msg =1;
+    int32 TransactionID = 2;
+}
+
+message ListInvestorsReq {
+}
+
+message ListInvestorsResp {
+    repeated Investor investors =1;
+}
+
+message Investor {
+    int32 ID =1;
+    int32 Balance =2;
+    int32 ReservedBalance =3;
+    repeated Invoice Invoices =4;
+    repeated Transaction Transactions =5;
+}
+
+message Transaction {
+    int32 ID =1;
+    int32 Amount =2;
+    string Status =3;
+    int32 InvoiceID =4;
+    int32 IssuerID =5;
+    int32 InvestorID =6;
+    string CreatedAt =7;
+    string UpdatedAt =8;
+}
+
+message ApproveReq {
+    int32 TransactionID =1;
+}
+
+message ApproveResp{
+    string Msg =1;
+}
+
+message ReverseReq {
+    int32 TransactionID =1;
+}
+
+message ReverseResp{
+    string Msg =1;
+}

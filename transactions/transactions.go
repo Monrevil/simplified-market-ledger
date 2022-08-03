@@ -14,17 +14,17 @@ type Transaction struct {
 	Status    Status
 	InvoiceID uint
 	// IssuerID - issuer here is a party selling invoice. Beneficiary of the transaction.
-	IssuerID   uint
+	IssuerID   int32
 	InvestorID uint
 	CreatedAt  time.Time
 	UpdateAt   time.Time
 }
 
-type Status uint
+type Status string
 
 const (
-	Pending  Status = 0
-	Approved Status = 1
-	Reversed Status = 2
-	Rejected Status = 3
+	Pending  Status = "Pending"
+	Approved Status = "Approved"
+	Reversed Status = "Reversed"
+	Rejected Status = "Rejected"
 )

@@ -12,20 +12,17 @@ type Invoice struct {
 	ID         uint
 	Value      int
 	Status     InvoiceStatus
-	Issuer     string
-	IssuerId   uint
-	OwnerID    uint
-	Owner      string
+	IssuerId   int32
+	OwnerID    int32
 	PutForSale time.Time
 	Financed   time.Time
 }
 
-type InvoiceStatus uint8
+type InvoiceStatus string
 
 const (
-	Available InvoiceStatus = 0
-	Financed  InvoiceStatus = 1
-	Reversed  InvoiceStatus = 2
+	Available InvoiceStatus = "Available"
+	Financed  InvoiceStatus = "Financed"
 	// Money should be reserved until operation is approved
-	Committed InvoiceStatus = 3
+	Committed InvoiceStatus = "Committed"
 )

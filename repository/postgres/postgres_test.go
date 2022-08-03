@@ -9,7 +9,6 @@ import (
 	"github.com/Monrevil/simplified-market-ledger/issuers"
 	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
 	"github.com/Monrevil/simplified-market-ledger/transactions"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +17,7 @@ func TestPostgresDatabase(t *testing.T) {
 
 	tr := transactions.Transaction{
 		Amount:     100,
-		Status:     0,
+		Status:     transactions.Approved,
 		InvoiceID:  0,
 		IssuerID:   1,
 		InvestorID: 10,
@@ -29,7 +28,7 @@ func TestPostgresDatabase(t *testing.T) {
 
 		id, err := tx.Transactions.CreateTransaction(tr)
 		assert.Nil(t, err)
-	
+
 		tr2, err := tx.Transactions.GetTransaction(uint(id))
 		assert.Nil(t, err)
 
@@ -41,7 +40,6 @@ func TestPostgresDatabase(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, transactions.Rejected, tr2.Status)
 
-
 		tx.Rollback()
 	})
 
@@ -50,10 +48,8 @@ func TestPostgresDatabase(t *testing.T) {
 		in := invoices.Invoice{
 			Value:      0,
 			Status:     invoices.Available,
-			Issuer:     "Issuer-1",
 			IssuerId:   1,
 			OwnerID:    1,
-			Owner:      "Issuer-1",
 			PutForSale: time.Now(),
 		}
 		err := tx.Invoices.SaveInvoice(&in)
@@ -119,7 +115,6 @@ func TestInvestorsRepository(t *testing.T) {
 	}
 	assert.Equal(t, 500, i.Balance, "Reserving balance should change active balance")
 	assert.Equal(t, 700, i.ReservedBalance, "Reserving balance should change reserved balance")
-	spew.Dump(i)
 
 	err := tx.Investors.ReserveBalance(i, 600)
 	assert.NotNil(t, err, "Should return error if active balance < amount to be reserved")
@@ -134,9 +129,39 @@ func TestInvestorsRepository(t *testing.T) {
 	err = tx.Investors.ReduceReservedBalance(&investors.Investor{ID: 0}, 600)
 	assert.NotNil(t, err, "Should return error for non-existing investor")
 
+	err = tx.Investors.ReserveBalance(&investors.Investor{ID: 0}, 600)
+	assert.NotNil(t, err, "Should return error for non-existing investor")
+
 	*i, err = tx.Investors.GetInvestor(i.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, 100, i.ReservedBalance)
 
 	tx.Rollback()
+}
+
+func GetTestIssuer() *issuers.Issuer {
+	return &issuers.Issuer{
+		FirstName: "Issuer-1",
+		LastName:  "Pangolin",
+		Balance:   100,
+	}
+}
+
+func GetTestInvestor() *investors.Investor {
+	return &investors.Investor{
+		FirstName:       "Investor-1",
+		LastName:        "Albacore",
+		Balance:         1000,
+		ReservedBalance: 200,
+	}
+}
+
+func GetTestInvoice() *invoices.Invoice {
+	return &invoices.Invoice{
+		Value:      100,
+		Status:     invoices.Available,
+		IssuerId:   1,
+		OwnerID:    1,
+		PutForSale: time.Now(),
+	}
 }
