@@ -13,7 +13,7 @@ Download [bloomrpc](https://github.com/bloomrpc/bloomrpc)
 brew install --cask bloomrpc
 ```
 1. Press Import protos (Green + sign) 
-2. Chose proto file at `/api/api.proto/`
+2. Chose proto file at `/api/api.proto/`. Ledger service will be running on port 5050
 3. SellInvoice
 4. ListInvestors
 5. PlaceBid
