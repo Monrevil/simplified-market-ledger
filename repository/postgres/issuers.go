@@ -19,7 +19,7 @@ func (p *PostgresIssuersRepository) GetIssuer(iss *issuers.Issuer) error {
 	return p.db.First(iss).Error
 }
 
-func (p *PostgresIssuersRepository) ChangeBalance(id uint, amount int) error {
+func (p *PostgresIssuersRepository) ChangeBalance(id int32, amount int) error {
 	issuer := &issuers.Issuer{ID: id}
 	return p.db.Model(issuer).Update("balance", gorm.Expr("balance + ?", amount)).Error
 }

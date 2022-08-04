@@ -5,7 +5,7 @@ type Repository interface {
 }
 
 type Issuer struct {
-	ID        uint
+	ID        int32
 	FirstName string
 	LastName  string
 	Balance   int

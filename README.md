@@ -12,8 +12,9 @@ Derived from defined functionality:
 - An endpoint to approve financing
 - An endpoint to revert financing
 
-# Process
-1. Build basic in-memory solution. With an ability to sell/buy invoice. Define basic data structures.
+# Matching algorithm
+Matching algorithm should be Singleton, and multiplex all connections (bid attempts) for a given invoice into a single goroutine. 
+Before that is should check if Invoice is Available for financing, and if bid is valid.
 
 # Considirations:
 So far all of the processes should be a single transaction in a database.

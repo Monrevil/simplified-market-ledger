@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/Monrevil/simplified-market-ledger/api"
 	"github.com/Monrevil/simplified-market-ledger/invoices"
+	"github.com/Monrevil/simplified-market-ledger/issuers"
 	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
 	"github.com/Monrevil/simplified-market-ledger/transactions"
 	"google.golang.org/grpc"
@@ -32,8 +36,19 @@ func Serve() {
 		r: postgres.NewPostgresRepository(),
 	}
 	api.RegisterLedgerServer(s, ledgerServer)
-	log.Printf("gRPC server is listening and serving on %v", addr)
 
+	// Perform graceful shutdown if interrupted.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		stop := <-sigCh
+		log.Printf("Got %v signal, attempting graceful shutdown", stop)
+		s.GracefulStop()
+		log.Printf("Shut down gRPC server successfully")
+	}()
+
+	log.Printf("gRPC server is listening and serving on %v", addr)
 	if err := s.Serve(conn); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
@@ -44,6 +59,11 @@ func (l *Ledger) SellInvoice(ctx context.Context, req *api.SellInvoiceReq) (*api
 
 	if req.InvoiceValue <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "Invoice value should be > 0")
+	}
+
+	issuer := issuers.Issuer{ID: req.IssuerID}
+	if err := tx.Issuers.GetIssuer(&issuer); err != nil {
+		return nil, status.Errorf(codes.NotFound, "No issuer with such id %v %v", req.IssuerID, err.Error())
 	}
 
 	in := invoices.Invoice{}
@@ -135,6 +155,7 @@ func (l *Ledger) PlaceBid(ctx context.Context, req *api.PlaceBidReq) (*api.Place
 			Status:   transactions.Rejected,
 			UpdateAt: time.Now(),
 		})
+		tx.Commit()
 		return nil, status.Errorf(codes.InvalidArgument, "invoice value is %v > bid amount %v", invoice.Value, req.Amount)
 	}
 
@@ -180,9 +201,11 @@ func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*ap
 	// TODO Should be Transactional:
 	tx.Invoices.UpdateInvoice(invoice)
 	tx.Investors.ReduceReservedBalance(&investor, transaction.Amount)
-	tx.Issuers.ChangeBalance(uint(transaction.IssuerID), transaction.Amount)
+	tx.Issuers.ChangeBalance(transaction.IssuerID, transaction.Amount)
 	tx.Commit()
-	return &api.ApproveResp{}, nil
+	return &api.ApproveResp{
+		Msg: fmt.Sprintf("Approved financing on invoice %v", invoice.ID),
+	}, nil
 }
 
 func (l *Ledger) ReverseFinancing(ctx context.Context, req *api.ReverseReq) (*api.ReverseResp, error) {
@@ -205,7 +228,9 @@ func (l *Ledger) ReverseFinancing(ctx context.Context, req *api.ReverseReq) (*ap
 	if err := tx.Commit(); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &api.ReverseResp{}, nil
+	return &api.ReverseResp{
+		Msg: fmt.Sprintf("Reversed financing on invoice %v", transaction.InvoiceID),
+	}, nil
 }
 
 func (l *Ledger) ListInvestors(ctx context.Context, req *api.ListInvestorsReq) (*api.ListInvestorsResp, error) {
