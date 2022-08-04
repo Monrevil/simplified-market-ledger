@@ -11,6 +11,7 @@ import (
 	"github.com/Monrevil/simplified-market-ledger/transactions"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type PostgresRepository struct {
@@ -30,7 +31,9 @@ func NewPostgresRepository() *PostgresRepository {
 	}
 	dsn := fmt.Sprintf("host=%s user=test password=test dbname=postgres port=%s sslmode=disable TimeZone=Asia/Shanghai", host, port)
 	log.Printf("Trying to connect to %v", dsn)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
 	if err != nil {
 		panic("failed to connect database")
 	}
