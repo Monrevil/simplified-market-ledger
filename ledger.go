@@ -226,14 +226,12 @@ func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*ap
 	}
 	// 1. Update Invoice
 	// 2. Transfer money from investor to issuer
-	invoice := invoices.Invoice{
-		ID:       transaction.InvoiceID,
-		Status:   invoices.Financed,
-		OwnerID:  investor.ID,
-		Financed: time.Now(),
-	}
-	transaction.Status = transactions.Approved
+	invoice, err := tx.Invoices.GetInvoice(transaction.InvoiceID)
+	invoice.Status = invoices.Financed
+	invoice.OwnerID = investor.ID
+	invoice.Financed = time.Now()
 
+	transaction.Status = transactions.Approved
 	tx.Transactions.UpdateTransaction(transaction)
 	// TODO Should be Transactional:
 	tx.Invoices.UpdateInvoice(invoice)

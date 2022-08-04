@@ -25,7 +25,7 @@ func NewPostgresRepository() *PostgresRepository {
 		host = "localhost"
 	}
 	port := os.Getenv("POSTGRES_PORT")
-	if host == "" {
+	if port == "" {
 		log.Println("POSTGRES_PORT was not set in env, using 5432")
 		port = "5432"
 	}
