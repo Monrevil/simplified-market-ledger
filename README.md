@@ -3,8 +3,8 @@
 # How to run
 
 ```
-git clone 
-
+git clone https://github.com/Monrevil/simplified-market-ledger
+make docker
 docker compose up
 ```
 
@@ -12,7 +12,13 @@ Download [bloomrpc](https://github.com/bloomrpc/bloomrpc)
 ```
 brew install --cask bloomrpc
 ```
-Press import proto, proto file is at `/api/api.proto/.
+1. Press Import protos (Green + sign) 
+2. Chose proto file at `/api/api.proto/`
+3. SellInvoice
+4. ListInvestors
+5. PlaceBid
+6. ApproveFinancing
+7. ListInvestors to check if Investor obtained the invoice, and his balance has changed
 
 ## To build docker image run
 ```
