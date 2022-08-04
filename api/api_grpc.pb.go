@@ -18,9 +18,11 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LedgerClient interface {
+	NewIssuer(ctx context.Context, in *NewIssuerReq, opts ...grpc.CallOption) (*NewIssuerResp, error)
 	SellInvoice(ctx context.Context, in *SellInvoiceReq, opts ...grpc.CallOption) (*SellInvoiceResp, error)
 	GetInvoice(ctx context.Context, in *GetInvoiceReq, opts ...grpc.CallOption) (*Invoice, error)
 	ListInvoices(ctx context.Context, in *ListInvoicesReq, opts ...grpc.CallOption) (*ListInvoicesResp, error)
+	NewInvestor(ctx context.Context, in *NewInvestorReq, opts ...grpc.CallOption) (*NewInvestorResp, error)
 	PlaceBid(ctx context.Context, in *PlaceBidReq, opts ...grpc.CallOption) (*PlaceBidResp, error)
 	ApproveFinancing(ctx context.Context, in *ApproveReq, opts ...grpc.CallOption) (*ApproveResp, error)
 	ReverseFinancing(ctx context.Context, in *ReverseReq, opts ...grpc.CallOption) (*ReverseResp, error)
@@ -33,6 +35,15 @@ type ledgerClient struct {
 
 func NewLedgerClient(cc grpc.ClientConnInterface) LedgerClient {
 	return &ledgerClient{cc}
+}
+
+func (c *ledgerClient) NewIssuer(ctx context.Context, in *NewIssuerReq, opts ...grpc.CallOption) (*NewIssuerResp, error) {
+	out := new(NewIssuerResp)
+	err := c.cc.Invoke(ctx, "/api.Ledger/NewIssuer", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *ledgerClient) SellInvoice(ctx context.Context, in *SellInvoiceReq, opts ...grpc.CallOption) (*SellInvoiceResp, error) {
@@ -56,6 +67,15 @@ func (c *ledgerClient) GetInvoice(ctx context.Context, in *GetInvoiceReq, opts .
 func (c *ledgerClient) ListInvoices(ctx context.Context, in *ListInvoicesReq, opts ...grpc.CallOption) (*ListInvoicesResp, error) {
 	out := new(ListInvoicesResp)
 	err := c.cc.Invoke(ctx, "/api.Ledger/ListInvoices", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *ledgerClient) NewInvestor(ctx context.Context, in *NewInvestorReq, opts ...grpc.CallOption) (*NewInvestorResp, error) {
+	out := new(NewInvestorResp)
+	err := c.cc.Invoke(ctx, "/api.Ledger/NewInvestor", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +122,11 @@ func (c *ledgerClient) ListInvestors(ctx context.Context, in *ListInvestorsReq, 
 // All implementations must embed UnimplementedLedgerServer
 // for forward compatibility
 type LedgerServer interface {
+	NewIssuer(context.Context, *NewIssuerReq) (*NewIssuerResp, error)
 	SellInvoice(context.Context, *SellInvoiceReq) (*SellInvoiceResp, error)
 	GetInvoice(context.Context, *GetInvoiceReq) (*Invoice, error)
 	ListInvoices(context.Context, *ListInvoicesReq) (*ListInvoicesResp, error)
+	NewInvestor(context.Context, *NewInvestorReq) (*NewInvestorResp, error)
 	PlaceBid(context.Context, *PlaceBidReq) (*PlaceBidResp, error)
 	ApproveFinancing(context.Context, *ApproveReq) (*ApproveResp, error)
 	ReverseFinancing(context.Context, *ReverseReq) (*ReverseResp, error)
@@ -116,6 +138,9 @@ type LedgerServer interface {
 type UnimplementedLedgerServer struct {
 }
 
+func (UnimplementedLedgerServer) NewIssuer(context.Context, *NewIssuerReq) (*NewIssuerResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewIssuer not implemented")
+}
 func (UnimplementedLedgerServer) SellInvoice(context.Context, *SellInvoiceReq) (*SellInvoiceResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SellInvoice not implemented")
 }
@@ -124,6 +149,9 @@ func (UnimplementedLedgerServer) GetInvoice(context.Context, *GetInvoiceReq) (*I
 }
 func (UnimplementedLedgerServer) ListInvoices(context.Context, *ListInvoicesReq) (*ListInvoicesResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListInvoices not implemented")
+}
+func (UnimplementedLedgerServer) NewInvestor(context.Context, *NewInvestorReq) (*NewInvestorResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewInvestor not implemented")
 }
 func (UnimplementedLedgerServer) PlaceBid(context.Context, *PlaceBidReq) (*PlaceBidResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PlaceBid not implemented")
@@ -148,6 +176,24 @@ type UnsafeLedgerServer interface {
 
 func RegisterLedgerServer(s grpc.ServiceRegistrar, srv LedgerServer) {
 	s.RegisterService(&Ledger_ServiceDesc, srv)
+}
+
+func _Ledger_NewIssuer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NewIssuerReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LedgerServer).NewIssuer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Ledger/NewIssuer",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LedgerServer).NewIssuer(ctx, req.(*NewIssuerReq))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Ledger_SellInvoice_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -200,6 +246,24 @@ func _Ledger_ListInvoices_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LedgerServer).ListInvoices(ctx, req.(*ListInvoicesReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Ledger_NewInvestor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NewInvestorReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LedgerServer).NewInvestor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Ledger/NewInvestor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LedgerServer).NewInvestor(ctx, req.(*NewInvestorReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -284,6 +348,10 @@ var Ledger_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*LedgerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "NewIssuer",
+			Handler:    _Ledger_NewIssuer_Handler,
+		},
+		{
 			MethodName: "SellInvoice",
 			Handler:    _Ledger_SellInvoice_Handler,
 		},
@@ -294,6 +362,10 @@ var Ledger_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListInvoices",
 			Handler:    _Ledger_ListInvoices_Handler,
+		},
+		{
+			MethodName: "NewInvestor",
+			Handler:    _Ledger_NewInvestor_Handler,
 		},
 		{
 			MethodName: "PlaceBid",

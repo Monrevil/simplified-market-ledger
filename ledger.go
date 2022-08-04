@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Monrevil/simplified-market-ledger/api"
+	"github.com/Monrevil/simplified-market-ledger/investors"
 	"github.com/Monrevil/simplified-market-ledger/invoices"
 	"github.com/Monrevil/simplified-market-ledger/issuers"
 	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
@@ -52,6 +53,22 @@ func Serve() {
 	if err := s.Serve(conn); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+}
+
+func (l *Ledger) NewIssuer(ctx context.Context, req *api.NewIssuerReq) (*api.NewIssuerResp, error) {
+	tx := l.r.Begin()
+
+	iss := issuers.Issuer{
+		Balance: int(req.Balance),
+	}
+	if err := tx.Issuers.NewIssuer(&iss); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	tx.Commit()
+	return &api.NewIssuerResp{
+		IssuerID: iss.ID,
+	}, nil
 }
 
 func (l *Ledger) SellInvoice(ctx context.Context, req *api.SellInvoiceReq) (*api.SellInvoiceResp, error) {
@@ -106,6 +123,22 @@ func (l *Ledger) ListInvoices(ctx context.Context, req *api.ListInvoicesReq) (*a
 	}
 	return &api.ListInvoicesResp{
 		InvoicesList: invoicesList,
+	}, nil
+}
+
+func (l *Ledger) NewInvestor(ctx context.Context, req *api.NewInvestorReq) (*api.NewInvestorResp, error) {
+	tx := l.r.Begin()
+
+	investor := investors.Investor{
+		Balance: int(req.Balance),
+	}
+	if err := tx.Investors.NewInvestor(&investor); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	tx.Commit()
+	return &api.NewInvestorResp{
+		InvestorId: investor.ID,
 	}, nil
 }
 

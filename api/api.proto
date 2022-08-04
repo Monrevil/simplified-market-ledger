@@ -5,13 +5,23 @@ option go_package = "github.com/Monrevil/simplified-market-ledger/api";
 package api;
 
 service Ledger {
+    rpc NewIssuer(NewIssuerReq) returns (NewIssuerResp) {}
     rpc SellInvoice(SellInvoiceReq) returns (SellInvoiceResp){}
     rpc GetInvoice(GetInvoiceReq) returns (Invoice) {}
     rpc ListInvoices(ListInvoicesReq) returns (ListInvoicesResp) {}
+    rpc NewInvestor(NewInvestorReq) returns (NewInvestorResp) {}
     rpc PlaceBid(PlaceBidReq) returns (PlaceBidResp){}
     rpc ApproveFinancing(ApproveReq) returns (ApproveResp){}
     rpc ReverseFinancing(ReverseReq) returns (ReverseResp){}
     rpc ListInvestors(ListInvestorsReq) returns (ListInvestorsResp){}
+}
+
+message NewIssuerReq {
+    int32 Balance =1;
+}
+
+message NewIssuerResp {
+    int32 IssuerID =1;
 }
 
 message SellInvoiceReq {
@@ -51,7 +61,12 @@ message PlaceBidResp {
     string Msg =1;
     int32 TransactionID = 2;
 }
-
+message NewInvestorReq {
+    int32 Balance=1;
+}
+message NewInvestorResp {
+    int32 InvestorId=1;
+}
 message ListInvestorsReq {
 }
 
