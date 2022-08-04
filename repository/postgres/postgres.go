@@ -3,6 +3,7 @@ package postgres
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/Monrevil/simplified-market-ledger/investors"
 	"github.com/Monrevil/simplified-market-ledger/invoices"
@@ -17,7 +18,18 @@ type PostgresRepository struct {
 }
 
 func NewPostgresRepository() *PostgresRepository {
-	dsn := "host=localhost user=test password=test dbname=postgres port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+	host := os.Getenv("POSTGRES_HOST")
+	if host == "" {
+		log.Println("POSTGRES_HOST was not set in env, using localhost")
+		host = "localhost"
+	}
+	port := os.Getenv("POSTGRES_PORT")
+	if host == "" {
+		log.Println("POSTGRES_PORT was not set in env, using 5432")
+		port = "5432"
+	}
+	dsn := fmt.Sprintf("host=%s user=test password=test dbname=postgres port=%s sslmode=disable TimeZone=Asia/Shanghai", host, port)
+	log.Printf("Trying to connect to %v", dsn)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
@@ -151,5 +163,3 @@ func (p *PostgresInvestorsRepository) ListInvestors() []investors.Investor {
 	p.db.Find(&investors)
 	return investors
 }
-
-

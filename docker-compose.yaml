@@ -61,17 +61,15 @@ services:
     networks:
       - postgres
 
-  pgadmin:
-    container_name: pgadmin_container_sml
-    image: dpage/pgadmin4:5.7
+  ledger:
+    container_name: ledger_container_sml
+    image: ledger:v0.1
     environment:
-      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL}"
-      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-    volumes:
-      - ./pgadmin:/var/lib/pgadmin
+      POSTGRES_HOST: "postgres_container_sml"
+      POSTGRES_PORT: "5432"
     ports:
-      - "5050:80"
+      - "5050:50051"
+    depends_on: [postgres]
     restart: unless-stopped
     deploy:
       resources:

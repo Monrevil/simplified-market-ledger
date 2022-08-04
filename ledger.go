@@ -183,6 +183,10 @@ func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*ap
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
+
+	if transaction.Status != transactions.Pending {
+		return nil, status.Errorf(codes.InvalidArgument, "Transaction %v is already %v", transaction.ID, transaction.Status)
+	}
 	investor, err := tx.Investors.GetInvestor(int32(transaction.InvestorID))
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
