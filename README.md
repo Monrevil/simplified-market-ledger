@@ -1,5 +1,28 @@
 # Simplified Market Ledger
 
+# How to run
+
+```
+git clone 
+
+docker compose up
+```
+
+Download [bloomrpc](https://github.com/bloomrpc/bloomrpc)
+```
+brew install --cask bloomrpc
+```
+Press import proto, proto file is at `/api/api.proto/.
+
+## To build docker image run
+```
+make docker
+```
+## To regenerate gRPC
+```
+make proto
+```
+
 # Required endpoints
 Endpoints defined in the documentation explicitly:
 - An endpoint to sell an invoice
