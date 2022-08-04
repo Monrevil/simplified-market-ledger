@@ -14,11 +14,13 @@ brew install --cask bloomrpc
 ```
 1. Press Import protos (Green + sign) 
 2. Chose proto file at `/api/api.proto/`. Ledger service will be running on port 5050
-3. SellInvoice
-4. ListInvestors
-5. PlaceBid
-6. ApproveFinancing
-7. ListInvestors to check if Investor obtained the invoice, and his balance has changed
+3. NewIssuer - create new issuer, get issuerID
+4. SellInvoice - sell invoice, using issuerID, get invoiceID
+5. NewInvestor - create new investor, get investorID
+6. ListInvestors - check created investors
+7. PlaceBid - place bid using investorID, and invoiceID, get transactionID
+8. ApproveFinancing - approve financing, using transactionID
+9. ListInvestors to check if Investor has obtained the invoice, and his balance has changed
 
 ## To build docker image run
 ```
