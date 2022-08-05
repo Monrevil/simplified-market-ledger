@@ -63,7 +63,7 @@ services:
 
   ledger:
     container_name: ledger_container_sml
-    image: ledger:v0.1
+    image: ghcr.io/monrevil/simplified-market-ledger:latest
     environment:
       POSTGRES_HOST: "postgres_container_sml"
       POSTGRES_PORT: "5432"

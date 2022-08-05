@@ -4,9 +4,10 @@
 
 ```
 git clone https://github.com/Monrevil/simplified-market-ledger
-make docker
 docker compose up
 ```
+
+## Test Workflow
 
 Download [bloomrpc](https://github.com/bloomrpc/bloomrpc)
 ```
