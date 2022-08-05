@@ -42,6 +42,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1
+	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.4 // indirect
 	github.com/ory/dockertest v3.3.5+incompatible

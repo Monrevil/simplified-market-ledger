@@ -15,6 +15,9 @@ import (
 	"github.com/Monrevil/simplified-market-ledger/issuers"
 	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
 	"github.com/Monrevil/simplified-market-ledger/transactions"
+
+	"github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -37,7 +40,10 @@ func Serve() {
 	if err != nil {
 		zapLogger.Fatalf("Cannot listen to address %s", addr)
 	}
-	s := grpc.NewServer()
+	s := grpc.NewServer(grpc_middleware.WithUnaryServerChain(
+		grpc_zap.UnaryServerInterceptor(logger),
+	),
+	)
 	ledgerServer := &Ledger{
 		r:   postgres.NewPostgresRepository(),
 		log: zapLogger,
