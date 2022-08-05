@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Monrevil/simplified-market-ledger/api"
+	"github.com/Monrevil/simplified-market-ledger/invoices"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -33,11 +34,19 @@ func TestLedger(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	invoiceValue := int32(100)
 	soldInvoice, err := c.SellInvoice(ctx, &api.SellInvoiceReq{
 		IssuerID:     r.IssuerID,
-		InvoiceValue: 100,
+		InvoiceValue: invoiceValue,
 	})
 	require.NoError(t, err)
+	invoiceDB, err := c.GetInvoice(ctx, &api.GetInvoiceReq{
+		InvoiceID: soldInvoice.InvoiceID,
+	})
+	require.NoError(t, err)
+	require.Equal(t, invoiceDB.Value, invoiceValue)
+	require.Equal(t, invoiceDB.Status, invoices.Available)
+	require.Equal(t, invoiceDB.OwnerID, r.IssuerID)
 
 	investor, err := c.NewInvestor(ctx, &api.NewInvestorReq{
 		Balance: 1000,

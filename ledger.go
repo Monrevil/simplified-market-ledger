@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -16,25 +15,32 @@ import (
 	"github.com/Monrevil/simplified-market-ledger/issuers"
 	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
 	"github.com/Monrevil/simplified-market-ledger/transactions"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type Ledger struct {
-	r *postgres.PostgresRepository
+	r   *postgres.PostgresRepository
+	log *zap.SugaredLogger
 	api.UnimplementedLedgerServer
 }
 
 func Serve() {
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync() // flushes buffer, if any
+	zapLogger := logger.Sugar()
+
 	addr := fmt.Sprintf(":%d", 50051)
 	conn, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("Cannot listen to address %s", addr)
+		zapLogger.Fatalf("Cannot listen to address %s", addr)
 	}
 	s := grpc.NewServer()
 	ledgerServer := &Ledger{
-		r: postgres.NewPostgresRepository(),
+		r:   postgres.NewPostgresRepository(),
+		log: zapLogger,
 	}
 	api.RegisterLedgerServer(s, ledgerServer)
 
@@ -44,14 +50,14 @@ func Serve() {
 
 	go func() {
 		stop := <-sigCh
-		log.Printf("Got %v signal, attempting graceful shutdown", stop)
+		ledgerServer.log.Infof("Got %v signal, attempting graceful shutdown", stop)
 		s.GracefulStop()
-		log.Printf("Shut down gRPC server successfully")
+		ledgerServer.log.Info("Shut down gRPC server successfully")
 	}()
 
-	log.Printf("gRPC server is listening and serving on %v", addr)
+	ledgerServer.log.Infof("gRPC server is listening and serving on %v", addr)
 	if err := s.Serve(conn); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		ledgerServer.log.Fatalf("failed to serve: %v", err)
 	}
 }
 
@@ -89,6 +95,10 @@ func (l *Ledger) SellInvoice(ctx context.Context, req *api.SellInvoiceReq) (*api
 	in.Status = invoices.Available
 	in.PutForSale = time.Now()
 
+	l.log.Infow("Putting invoice for sale",
+		"Issuer", issuer,
+		"Invoice", in,
+	)
 	if err := tx.Invoices.SaveInvoice(&in); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -212,10 +222,12 @@ func (l *Ledger) PlaceBid(ctx context.Context, req *api.PlaceBidReq) (*api.Place
 func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*api.ApproveResp, error) {
 	tx := l.r.Begin()
 
+	l.log.Infof("Trying to approve financing on transaction %v", req.TransactionID)
 	transaction, err := tx.Transactions.GetTransaction(uint(req.TransactionID))
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
+	l.log.Infof("Transaction to be approved: %+v", transaction)
 
 	if transaction.Status != transactions.Pending {
 		return nil, status.Errorf(codes.InvalidArgument, "Transaction %v is already %v", transaction.ID, transaction.Status)
@@ -224,9 +236,14 @@ func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*ap
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
+	l.log.Infof("Investor:%+v", investor)
 	// 1. Update Invoice
 	// 2. Transfer money from investor to issuer
 	invoice, err := tx.Invoices.GetInvoice(transaction.InvoiceID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "Could not find invoice %v", err)
+	}
+	l.log.Infof("Invoice to be Approved:%+v", invoice)
 	invoice.Status = invoices.Financed
 	invoice.OwnerID = investor.ID
 	invoice.Financed = time.Now()
