@@ -23,6 +23,7 @@ type LedgerClient interface {
 	GetInvoice(ctx context.Context, in *GetInvoiceReq, opts ...grpc.CallOption) (*Invoice, error)
 	ListInvoices(ctx context.Context, in *ListInvoicesReq, opts ...grpc.CallOption) (*ListInvoicesResp, error)
 	NewInvestor(ctx context.Context, in *NewInvestorReq, opts ...grpc.CallOption) (*NewInvestorResp, error)
+	GetInvestor(ctx context.Context, in *GetInvestorReq, opts ...grpc.CallOption) (*Investor, error)
 	PlaceBid(ctx context.Context, in *PlaceBidReq, opts ...grpc.CallOption) (*PlaceBidResp, error)
 	ApproveFinancing(ctx context.Context, in *ApproveReq, opts ...grpc.CallOption) (*ApproveResp, error)
 	ReverseFinancing(ctx context.Context, in *ReverseReq, opts ...grpc.CallOption) (*ReverseResp, error)
@@ -82,6 +83,15 @@ func (c *ledgerClient) NewInvestor(ctx context.Context, in *NewInvestorReq, opts
 	return out, nil
 }
 
+func (c *ledgerClient) GetInvestor(ctx context.Context, in *GetInvestorReq, opts ...grpc.CallOption) (*Investor, error) {
+	out := new(Investor)
+	err := c.cc.Invoke(ctx, "/api.Ledger/GetInvestor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *ledgerClient) PlaceBid(ctx context.Context, in *PlaceBidReq, opts ...grpc.CallOption) (*PlaceBidResp, error) {
 	out := new(PlaceBidResp)
 	err := c.cc.Invoke(ctx, "/api.Ledger/PlaceBid", in, out, opts...)
@@ -127,6 +137,7 @@ type LedgerServer interface {
 	GetInvoice(context.Context, *GetInvoiceReq) (*Invoice, error)
 	ListInvoices(context.Context, *ListInvoicesReq) (*ListInvoicesResp, error)
 	NewInvestor(context.Context, *NewInvestorReq) (*NewInvestorResp, error)
+	GetInvestor(context.Context, *GetInvestorReq) (*Investor, error)
 	PlaceBid(context.Context, *PlaceBidReq) (*PlaceBidResp, error)
 	ApproveFinancing(context.Context, *ApproveReq) (*ApproveResp, error)
 	ReverseFinancing(context.Context, *ReverseReq) (*ReverseResp, error)
@@ -152,6 +163,9 @@ func (UnimplementedLedgerServer) ListInvoices(context.Context, *ListInvoicesReq)
 }
 func (UnimplementedLedgerServer) NewInvestor(context.Context, *NewInvestorReq) (*NewInvestorResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewInvestor not implemented")
+}
+func (UnimplementedLedgerServer) GetInvestor(context.Context, *GetInvestorReq) (*Investor, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetInvestor not implemented")
 }
 func (UnimplementedLedgerServer) PlaceBid(context.Context, *PlaceBidReq) (*PlaceBidResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PlaceBid not implemented")
@@ -268,6 +282,24 @@ func _Ledger_NewInvestor_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Ledger_GetInvestor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetInvestorReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LedgerServer).GetInvestor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Ledger/GetInvestor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LedgerServer).GetInvestor(ctx, req.(*GetInvestorReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Ledger_PlaceBid_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PlaceBidReq)
 	if err := dec(in); err != nil {
@@ -366,6 +398,10 @@ var Ledger_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NewInvestor",
 			Handler:    _Ledger_NewInvestor_Handler,
+		},
+		{
+			MethodName: "GetInvestor",
+			Handler:    _Ledger_GetInvestor_Handler,
 		},
 		{
 			MethodName: "PlaceBid",

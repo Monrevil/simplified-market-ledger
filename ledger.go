@@ -16,7 +16,7 @@ import (
 	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
 	"github.com/Monrevil/simplified-market-ledger/transactions"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -30,15 +30,21 @@ type Ledger struct {
 	api.UnimplementedLedgerServer
 }
 
-func Serve() {
+func Serve(address string) {
+	if err := os.Setenv("GRPC_GO_LOG_VERBOSITY_LEVEL", "99"); err != nil {
+		panic(err)
+	}
+	if err := os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "info"); err != nil {
+		panic(err)
+	}
+
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync() // flushes buffer, if any
 	zapLogger := logger.Sugar()
 
-	addr := fmt.Sprintf(":%d", 50051)
-	conn, err := net.Listen("tcp", addr)
+	conn, err := net.Listen("tcp", address)
 	if err != nil {
-		zapLogger.Fatalf("Cannot listen to address %s", addr)
+		zapLogger.Fatalf("Cannot listen to address %s", address)
 	}
 	s := grpc.NewServer(grpc_middleware.WithUnaryServerChain(
 		grpc_zap.UnaryServerInterceptor(logger),
@@ -61,7 +67,7 @@ func Serve() {
 		ledgerServer.log.Info("Shut down gRPC server successfully")
 	}()
 
-	ledgerServer.log.Infof("gRPC server is listening and serving on %v", addr)
+	ledgerServer.log.Infof("gRPC server is listening and serving on %v", address)
 	if err := s.Serve(conn); err != nil {
 		ledgerServer.log.Fatalf("failed to serve: %v", err)
 	}
@@ -96,6 +102,7 @@ func (l *Ledger) SellInvoice(ctx context.Context, req *api.SellInvoiceReq) (*api
 	}
 
 	in := invoices.Invoice{}
+	in.Value = int(req.InvoiceValue)
 	in.IssuerId = req.IssuerID
 	in.OwnerID = req.IssuerID
 	in.Status = invoices.Available
@@ -119,10 +126,11 @@ func (l *Ledger) GetInvoice(ctx context.Context, req *api.GetInvoiceReq) (*api.I
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	return &api.Invoice{
-		ID:      int32(invoice.ID),
-		Value:   int32(invoice.Value),
-		OwnerID: int32(invoice.Value),
-		Status:  string(invoice.Status),
+		ID:       int32(invoice.ID),
+		Value:    int32(invoice.Value),
+		IssuerID: invoice.IssuerId,
+		OwnerID:  invoice.OwnerID,
+		Status:   string(invoice.Status),
 	}, nil
 }
 
@@ -131,10 +139,11 @@ func (l *Ledger) ListInvoices(ctx context.Context, req *api.ListInvoicesReq) (*a
 	invoicesList := []*api.Invoice{}
 	for _, invoice := range invoices {
 		invoicesList = append(invoicesList, &api.Invoice{
-			ID:      int32(invoice.ID),
-			Value:   int32(invoice.Value),
-			OwnerID: invoice.OwnerID,
-			Status:  string(invoice.Status),
+			ID:       int32(invoice.ID),
+			Value:    int32(invoice.Value),
+			IssuerID: invoice.IssuerId,
+			OwnerID:  invoice.OwnerID,
+			Status:   string(invoice.Status),
 		})
 	}
 	return &api.ListInvoicesResp{
@@ -294,43 +303,76 @@ func (l *Ledger) ReverseFinancing(ctx context.Context, req *api.ReverseReq) (*ap
 	}, nil
 }
 
+func (l *Ledger) GetInvestor(ctx context.Context, req *api.GetInvestorReq) (*api.Investor, error) {
+	tx := l.r.Begin()
+	defer tx.Commit()
+
+	investor, err := tx.Investors.GetInvestor(req.InvestorID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "Could not fund investor with id %v", req.InvestorID)
+	}
+	invoices := tx.Invoices.ListInvestorInvoices(investor.ID)
+	transactions := tx.Transactions.ListInvestorTransactions(investor.ID)
+	return &api.Investor{
+		ID:              investor.ID,
+		Balance:         int32(investor.Balance),
+		ReservedBalance: int32(investor.ReservedBalance),
+		Invoices:        convertInvoices(invoices),
+		Transactions:    convertTransactions(transactions),
+	}, nil
+
+}
+
 func (l *Ledger) ListInvestors(ctx context.Context, req *api.ListInvestorsReq) (*api.ListInvestorsResp, error) {
-	investorList := l.r.Begin().Investors.ListInvestors()
+	tx := l.r.Begin()
+	defer tx.Commit()
+
+	investorList := tx.Investors.ListInvestors()
 	resp := []*api.Investor{}
 	for _, investor := range investorList {
-		invoicesDB := l.r.Begin().Invoices.ListInvestorInvoices(investor.ID)
-		invoicesList := []*api.Invoice{}
-		for _, invoice := range invoicesDB {
-			invoicesList = append(invoicesList, &api.Invoice{
-				ID:      int32(invoice.ID),
-				Value:   int32(invoice.Value),
-				OwnerID: invoice.OwnerID,
-				Status:  string(invoice.Status),
-			})
-		}
-		transactionsDB := l.r.Begin().Transactions.ListInvestorTransactions(investor.ID)
-		transactionsList := []*api.Transaction{}
-		for _, transaction := range transactionsDB {
-			transactionsList = append(transactionsList, &api.Transaction{
-				ID:         int32(transaction.ID),
-				Amount:     int32(transaction.Amount),
-				Status:     string(transaction.Status),
-				InvoiceID:  int32(transaction.InvoiceID),
-				IssuerID:   transaction.IssuerID,
-				InvestorID: int32(transaction.InvestorID),
-				CreatedAt:  transaction.CreatedAt.String(),
-				UpdatedAt:  transaction.UpdateAt.String(),
-			})
-		}
+		invoices := tx.Invoices.ListInvestorInvoices(investor.ID)
+		transactions := tx.Transactions.ListInvestorTransactions(investor.ID)
 		resp = append(resp, &api.Investor{
 			ID:              investor.ID,
 			Balance:         int32(investor.Balance),
 			ReservedBalance: int32(investor.ReservedBalance),
-			Invoices:        invoicesList,
-			Transactions:    transactionsList,
+			Invoices:        convertInvoices(invoices),
+			Transactions:    convertTransactions(transactions),
 		})
 	}
 	return &api.ListInvestorsResp{
 		Investors: resp,
 	}, nil
+}
+
+// Convert database response to the api response
+func convertTransactions(transactionsDB []transactions.Transaction) []*api.Transaction {
+	transactionsList := []*api.Transaction{}
+	for _, transaction := range transactionsDB {
+		transactionsList = append(transactionsList, &api.Transaction{
+			ID:         int32(transaction.ID),
+			Amount:     int32(transaction.Amount),
+			Status:     string(transaction.Status),
+			InvoiceID:  int32(transaction.InvoiceID),
+			IssuerID:   transaction.IssuerID,
+			InvestorID: int32(transaction.InvestorID),
+			CreatedAt:  transaction.CreatedAt.String(),
+			UpdatedAt:  transaction.UpdateAt.String(),
+		})
+	}
+	return transactionsList
+}
+
+// Convert database response to the api response
+func convertInvoices(invoicesDB []invoices.Invoice) []*api.Invoice {
+	invoicesList := []*api.Invoice{}
+	for _, invoice := range invoicesDB {
+		invoicesList = append(invoicesList, &api.Invoice{
+			ID:      int32(invoice.ID),
+			Value:   int32(invoice.Value),
+			OwnerID: invoice.OwnerID,
+			Status:  string(invoice.Status),
+		})
+	}
+	return invoicesList
 }

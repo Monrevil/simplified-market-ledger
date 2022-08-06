@@ -106,6 +106,9 @@ func (p *PostgresInvestorsRepository) GetInvestor(investorID int32) (investors.I
 
 // ReserveBalance expects ID to be set for the investor
 func (p *PostgresInvestorsRepository) ReserveBalance(investor *investors.Investor, amount int) error {
+	if investor.ID == 0 {
+		return fmt.Errorf("InvestorID can not be 0")
+	}
 	if err := p.db.First(investor).Error; err != nil {
 		return err
 	}

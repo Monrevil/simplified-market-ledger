@@ -10,6 +10,7 @@ service Ledger {
     rpc GetInvoice(GetInvoiceReq) returns (Invoice) {}
     rpc ListInvoices(ListInvoicesReq) returns (ListInvoicesResp) {}
     rpc NewInvestor(NewInvestorReq) returns (NewInvestorResp) {}
+    rpc GetInvestor(GetInvestorReq) returns (Investor) {}
     rpc PlaceBid(PlaceBidReq) returns (PlaceBidResp){}
     rpc ApproveFinancing(ApproveReq) returns (ApproveResp){}
     rpc ReverseFinancing(ReverseReq) returns (ReverseResp){}
@@ -43,8 +44,9 @@ message GetInvoiceReq{
 message Invoice {
     int32 ID =1;
     int32 Value =2;
-    int32 OwnerID =3;
-    string Status =4;
+    int32 IssuerID =3;
+    int32 OwnerID =4;
+    string Status =5;
 }
 
 message ListInvoicesResp {
@@ -61,12 +63,19 @@ message PlaceBidResp {
     string Msg =1;
     int32 TransactionID = 2;
 }
+
 message NewInvestorReq {
     int32 Balance=1;
 }
+
 message NewInvestorResp {
     int32 InvestorId=1;
 }
+
+message GetInvestorReq {
+    int32 InvestorID =1;
+}
+
 message ListInvestorsReq {
 }
 
