@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/Monrevil/simplified-market-ledger/investors"
 	"github.com/Monrevil/simplified-market-ledger/invoices"
@@ -31,11 +32,17 @@ func NewPostgresRepository() *PostgresRepository {
 	}
 	dsn := fmt.Sprintf("host=%s user=test password=test dbname=postgres port=%s sslmode=disable TimeZone=Asia/Shanghai", host, port)
 	log.Printf("Trying to connect to %v", dsn)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+	
+	var db *gorm.DB
+	var err error
+	err = retry(4, 2*time.Second, func() error {
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Info),
+		})
+		return err
 	})
 	if err != nil {
-		panic("failed to connect database")
+		panic(err)
 	}
 	// Migrate the schema
 	db.AutoMigrate(&investors.Investor{}, &invoices.Invoice{}, &issuers.Issuer{}, &transactions.Transaction{})
@@ -43,6 +50,22 @@ func NewPostgresRepository() *PostgresRepository {
 	return &PostgresRepository{
 		db: db,
 	}
+}
+
+func retry(attempts int, interval time.Duration, f func() error) error {
+	var err error
+	for i := 0; i < attempts; i++ {
+		if i > 0 {
+			log.Printf("retrying after error: %v in %v seconds", err, interval.Seconds())
+			time.Sleep(interval)
+			interval *= 2
+		}
+		err = f()
+		if err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("after %d attempts, last error: %v", attempts, err)
 }
 
 func (p *PostgresRepository) Begin() *PostgresTransaction {

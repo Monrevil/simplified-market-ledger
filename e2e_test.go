@@ -17,9 +17,9 @@ var conn *grpc.ClientConn
 var addr = "localhost:50051"
 
 func TestMain(m *testing.M) {
-	// go func() {
-	// 	Serve(addr)
-	// }()
+	go func() {
+		Serve(addr)
+	}()
 
 	var err error
 	conn, err = grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -39,9 +39,7 @@ func TestMain(m *testing.M) {
 func TestLedger(t *testing.T) {
 	c := api.NewLedgerClient(conn)
 
-	// Contact the server and print out its response.
 	ctx := context.Background()
-
 	issuer, err := c.NewIssuer(ctx, &api.NewIssuerReq{
 		Balance: 0,
 	})
