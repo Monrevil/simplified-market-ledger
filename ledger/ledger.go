@@ -206,7 +206,7 @@ func (l *Ledger) PlaceBid(ctx context.Context, req *api.PlaceBidReq) (*api.Place
 	// balance that wasn’t used, then investor-3 available balance increases by €200.
 
 	transactionID, err := tx.Transactions.CreateTransaction(transactions.Transaction{
-		Amount:     req.Amount,
+		Amount:     invoice.Value,
 		Status:     transactions.Pending,
 		InvoiceID:  req.InvoiceID,
 		IssuerID:   invoice.IssuerId,
@@ -219,16 +219,15 @@ func (l *Ledger) PlaceBid(ctx context.Context, req *api.PlaceBidReq) (*api.Place
 	if invoice.Value > req.Amount {
 		tx.Investors.ReleaseBalance(&investor, req.Amount)
 		tx.Transactions.UpdateTransaction(transactions.Transaction{
-			ID:       transactionID,
-			Status:   transactions.Rejected,
-			UpdateAt: time.Now(),
+			ID:     transactionID,
+			Status: transactions.Rejected,
 		})
 		tx.Commit()
 		return nil, status.Errorf(codes.InvalidArgument, "invoice value is %v > bid amount %v", invoice.Value, req.Amount)
 	}
 
 	// If bid amount is not the exact value of an invoice - release surplus to the available balance
-	if invoice.Value != req.Amount {
+	if invoice.Value < req.Amount {
 		tx.Investors.ReleaseBalance(&investor, req.Amount-invoice.Value)
 	}
 	invoice.Status = invoices.Financed
@@ -257,7 +256,7 @@ func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*ap
 	if transaction.Status != transactions.Pending {
 		return nil, status.Errorf(codes.InvalidArgument, "Transaction %v is already %v", transaction.ID, transaction.Status)
 	}
-	investor, err := tx.Investors.GetInvestor(int32(transaction.InvestorID))
+	investor, err := tx.Investors.GetInvestor(transaction.InvestorID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -274,9 +273,8 @@ func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*ap
 	invoice.Financed = time.Now()
 
 	transaction.Status = transactions.Approved
-	transaction.UpdateAt = time.Now()
 	tx.Transactions.UpdateTransaction(transaction)
-	// TODO Should be Transactional:
+	// Transfer Funds from an Investor to the Issuer
 	tx.Invoices.UpdateInvoice(invoice)
 	tx.Investors.ReduceReservedBalance(&investor, transaction.Amount)
 	tx.Issuers.IncreaseBalance(transaction.IssuerID, transaction.Amount)
@@ -300,12 +298,20 @@ func (l *Ledger) ReverseFinancing(ctx context.Context, req *api.ReverseReq) (*ap
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	// TODO Should be Transactional:
+	// Release investor balance, and revert transaction
 	tx.Investors.ReleaseBalance(&investor, transaction.Amount)
 	transaction.Status = transactions.Reversed
-	transaction.UpdateAt = time.Now()
 	tx.Transactions.UpdateTransaction(transaction)
-	tx.Invoices.UpdateInvoice(invoices.Invoice{ID: transaction.InvoiceID, Status: invoices.Available})
+
+	// Mark invoice as Available for sale, and return it to issuer
+	invoice, err := tx.Invoices.GetInvoice(transaction.InvoiceID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "Could not find invoice %v", transaction.InvoiceID)
+	}
+	invoice.Status = invoices.Available
+	invoice.OwnerID = transaction.IssuerID
+	
+	tx.Invoices.UpdateInvoice(invoice)
 
 	if err := tx.Commit(); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -369,7 +375,7 @@ func convertTransactions(transactionsDB []transactions.Transaction) []*api.Trans
 			IssuerID:   transaction.IssuerID,
 			InvestorID: int32(transaction.InvestorID),
 			CreatedAt:  transaction.CreatedAt.String(),
-			UpdatedAt:  transaction.UpdateAt.String(),
+			UpdatedAt:  transaction.UpdatedAt.String(),
 		})
 	}
 	return transactionsList

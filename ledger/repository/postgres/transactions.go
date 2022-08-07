@@ -26,7 +26,7 @@ func (p *PostgresTransactionsRepository) UpdateTransaction(tr transactions.Trans
 func (p *PostgresTransactionsRepository) ListInvestorTransactions(investorID int32) []transactions.Transaction {
 	transactionsList := []transactions.Transaction{}
 	p.db.Where(transactions.Transaction{
-		ID: investorID,
+		InvestorID: investorID,
 	}).Find(&transactionsList)
 	return transactionsList
 }

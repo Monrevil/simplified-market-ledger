@@ -11,7 +11,7 @@ type Transaction struct {
 	IssuerID   int32
 	InvestorID int32
 	CreatedAt  time.Time
-	UpdateAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Status string
