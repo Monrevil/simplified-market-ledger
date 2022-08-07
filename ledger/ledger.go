@@ -293,7 +293,7 @@ func (l *Ledger) ReverseFinancing(ctx context.Context, req *api.ReverseReq) (*ap
 	if transaction.Status != transactions.Pending {
 		return nil, status.Errorf(codes.InvalidArgument, "Transaction %v is already %v", transaction.ID, transaction.Status)
 	}
-	investor, err := tx.Investors.GetInvestor(int32(transaction.InvestorID))
+	investor, err := tx.Investors.GetInvestor(transaction.InvestorID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -386,10 +386,11 @@ func convertInvoices(invoicesDB []invoices.Invoice) []*api.Invoice {
 	invoicesList := []*api.Invoice{}
 	for _, invoice := range invoicesDB {
 		invoicesList = append(invoicesList, &api.Invoice{
-			ID:      int32(invoice.ID),
-			Value:   int32(invoice.Value),
-			OwnerID: invoice.OwnerID,
-			Status:  string(invoice.Status),
+			ID:       invoice.ID,
+			Value:    invoice.Value,
+			IssuerID: invoice.IssuerId,
+			OwnerID:  invoice.OwnerID,
+			Status:   string(invoice.Status),
 		})
 	}
 	return invoicesList
