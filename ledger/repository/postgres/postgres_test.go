@@ -106,13 +106,13 @@ func TestInvestorsRepository(t *testing.T) {
 
 	err = tx.Investors.ReleaseBalance(i, 100)
 	require.NoError(t, err)
-	require.Equal(t, 1100, i.Balance, "Releasing balance should change active balance")
-	require.Equal(t, 100, i.ReservedBalance, "Releasing balance should change reserved balance")
+	require.EqualValues(t, 1100, i.Balance, "Releasing balance should change active balance")
+	require.EqualValues(t, 100, i.ReservedBalance, "Releasing balance should change reserved balance")
 
 	err = tx.Investors.ReserveBalance(i, 600)
 	require.NoError(t, err)
-	require.Equal(t, 500, i.Balance, "Reserving balance should change active balance")
-	require.Equal(t, 700, i.ReservedBalance, "Reserving balance should change reserved balance")
+	require.EqualValues(t, 500, i.Balance, "Reserving balance should change active balance")
+	require.EqualValues(t, 700, i.ReservedBalance, "Reserving balance should change reserved balance")
 
 	err = tx.Investors.ReserveBalance(i, 600)
 	require.Error(t, err, "Should return error if active balance < amount to be reserved")
@@ -122,7 +122,7 @@ func TestInvestorsRepository(t *testing.T) {
 
 	*i, err = tx.Investors.GetInvestor(i.ID)
 	require.Nil(t, err)
-	require.Equal(t, 100, i.ReservedBalance)
+	require.EqualValues(t, 100, i.ReservedBalance)
 
 	err = tx.Investors.ReduceReservedBalance(&investors.Investor{ID: 0}, 600)
 	require.Error(t, err, "Should return error for non-existing investor")
@@ -132,7 +132,7 @@ func TestInvestorsRepository(t *testing.T) {
 
 	*i, err = tx.Investors.GetInvestor(i.ID)
 	require.Nil(t, err)
-	require.Equal(t, 100, i.ReservedBalance)
+	require.EqualValues(t, 100, i.ReservedBalance)
 
 	tx.Rollback()
 }

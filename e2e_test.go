@@ -55,9 +55,9 @@ func TestLedger(t *testing.T) {
 		InvoiceID: soldInvoice.InvoiceID,
 	})
 	require.NoError(t, err)
-	require.Equal(t, invoiceValue, invoiceDB.Value, "Invoice value should be recorded in DB")
-	require.Equal(t, string(invoices.Available), invoiceDB.Status, "Invoice should be available for sale")
-	require.Equal(t, issuer.IssuerID, invoiceDB.OwnerID, "Invoice should belong to the issuer")
+	require.EqualValues(t, invoiceValue, invoiceDB.Value, "Invoice value should be recorded in DB")
+	require.EqualValues(t, invoices.Available, invoiceDB.Status, "Invoice should be available for sale")
+	require.EqualValues(t, issuer.IssuerID, invoiceDB.OwnerID, "Invoice should belong to the issuer")
 
 	investor, err := c.NewInvestor(ctx, &api.NewInvestorReq{
 		Balance: 1000,
@@ -75,8 +75,8 @@ func TestLedger(t *testing.T) {
 		InvestorID: investor.InvestorId,
 	})
 	require.NoError(t, err)
-	require.Equal(t, int32(900), investorDB.Balance, "Should reserve balance after placed bid")
-	require.Equal(t, int32(100), investorDB.ReservedBalance, "Should reserve balance after placed bid")
+	require.EqualValues(t, 900, investorDB.Balance, "Should reserve balance after placed bid")
+	require.EqualValues(t, 100, investorDB.ReservedBalance, "Should reserve balance after placed bid")
 
 	financed, err := c.ApproveFinancing(ctx, &api.ApproveReq{
 		TransactionID: bid.TransactionID,
@@ -87,7 +87,7 @@ func TestLedger(t *testing.T) {
 		InvoiceID: soldInvoice.InvoiceID,
 	})
 	require.NoError(t, err)
-	require.Equal(t, investor.InvestorId, boughtInvoice.OwnerID, "Investor should get the invoice")
+	require.EqualValues(t, investor.InvestorId, boughtInvoice.OwnerID, "Investor should get the invoice")
 
 	t.Log(financed.Msg)
 }
