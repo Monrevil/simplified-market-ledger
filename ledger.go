@@ -31,13 +31,6 @@ type Ledger struct {
 }
 
 func Serve(address string) {
-	if err := os.Setenv("GRPC_GO_LOG_VERBOSITY_LEVEL", "99"); err != nil {
-		panic(err)
-	}
-	if err := os.Setenv("GRPC_GO_LOG_SEVERITY_LEVEL", "info"); err != nil {
-		panic(err)
-	}
-
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync() // flushes buffer, if any
 	zapLogger := logger.Sugar()
@@ -47,6 +40,7 @@ func Serve(address string) {
 		zapLogger.Fatalf("Cannot listen to address %s", address)
 	}
 	s := grpc.NewServer(grpc_middleware.WithUnaryServerChain(
+		loggingMiddleware(logger),
 		grpc_zap.UnaryServerInterceptor(logger),
 	),
 	)
@@ -71,6 +65,22 @@ func Serve(address string) {
 	if err := s.Serve(conn); err != nil {
 		ledgerServer.log.Fatalf("failed to serve: %v", err)
 	}
+}
+
+func loggingMiddleware(logger *zap.Logger) grpc.UnaryServerInterceptor {
+	loggingInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		logger.Info("received a gRPC request",
+			zap.String("handler", info.FullMethod),
+			zap.String("request", fmt.Sprintf("%+v\n", req)),
+		)
+		resp, err := handler(ctx, req)
+		logger.Info("sending a gRPC response",
+			zap.String("handler", info.FullMethod),
+			zap.String("response", fmt.Sprintf("%+v", resp)),
+		)
+		return resp, err
+	}
+	return loggingInterceptor
 }
 
 func (l *Ledger) NewIssuer(ctx context.Context, req *api.NewIssuerReq) (*api.NewIssuerResp, error) {
