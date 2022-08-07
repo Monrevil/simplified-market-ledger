@@ -1,7 +1,7 @@
 package postgres
 
 import (
-	"github.com/Monrevil/simplified-market-ledger/invoices"
+	"github.com/Monrevil/simplified-market-ledger/ledger/invoices"
 	"gorm.io/gorm"
 )
 
@@ -12,7 +12,7 @@ type PostgresInvoicesRepository struct {
 func (p *PostgresInvoicesRepository) SaveInvoice(invoice *invoices.Invoice) error {
 	return p.db.Create(&invoice).Error
 }
-func (p *PostgresInvoicesRepository) GetInvoice(invoiceID uint) (invoices.Invoice, error) {
+func (p *PostgresInvoicesRepository) GetInvoice(invoiceID int32) (invoices.Invoice, error) {
 	invoice := invoices.Invoice{}
 	err := p.db.First(&invoice, invoiceID).Error
 	return invoice, err

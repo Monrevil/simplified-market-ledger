@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Monrevil/simplified-market-ledger/investors"
-	"github.com/Monrevil/simplified-market-ledger/invoices"
-	"github.com/Monrevil/simplified-market-ledger/issuers"
-	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
-	"github.com/Monrevil/simplified-market-ledger/transactions"
+	"github.com/Monrevil/simplified-market-ledger/ledger/investors"
+	"github.com/Monrevil/simplified-market-ledger/ledger/invoices"
+	"github.com/Monrevil/simplified-market-ledger/ledger/issuers"
+	"github.com/Monrevil/simplified-market-ledger/ledger/repository/postgres"
+	"github.com/Monrevil/simplified-market-ledger/ledger/transactions"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,14 +29,14 @@ func TestPostgresDatabase(t *testing.T) {
 		id, err := tx.Transactions.CreateTransaction(tr)
 		require.Nil(t, err)
 
-		tr2, err := tx.Transactions.GetTransaction(uint(id))
+		tr2, err := tx.Transactions.GetTransaction(id)
 		require.Nil(t, err)
 
 		tr2.Status = transactions.Rejected
 		err = tx.Transactions.UpdateTransaction(tr2)
 		require.Nil(t, err)
 
-		tr2, err = tx.Transactions.GetTransaction(uint(id))
+		tr2, err = tx.Transactions.GetTransaction(id)
 		require.Nil(t, err)
 		require.Equal(t, transactions.Rejected, tr2.Status)
 
@@ -77,7 +77,7 @@ func TestPostgresDatabase(t *testing.T) {
 		if err := tx.Issuers.NewIssuer(&iss); err != nil {
 			t.Fatal(err)
 		}
-		if err := tx.Issuers.ChangeBalance(iss.ID, 100); err != nil {
+		if err := tx.Issuers.IncreaseBalance(iss.ID, 100); err != nil {
 			t.Fatal(err)
 		}
 		if err := tx.Issuers.GetIssuer(&iss); err != nil {
@@ -135,31 +135,4 @@ func TestInvestorsRepository(t *testing.T) {
 	require.Equal(t, 100, i.ReservedBalance)
 
 	tx.Rollback()
-}
-
-func GetTestIssuer() *issuers.Issuer {
-	return &issuers.Issuer{
-		FirstName: "Issuer-1",
-		LastName:  "Pangolin",
-		Balance:   100,
-	}
-}
-
-func GetTestInvestor() *investors.Investor {
-	return &investors.Investor{
-		FirstName:       "Investor-1",
-		LastName:        "Albacore",
-		Balance:         1000,
-		ReservedBalance: 200,
-	}
-}
-
-func GetTestInvoice() *invoices.Invoice {
-	return &invoices.Invoice{
-		Value:      100,
-		Status:     invoices.Available,
-		IssuerId:   1,
-		OwnerID:    1,
-		PutForSale: time.Now(),
-	}
 }

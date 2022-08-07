@@ -1,4 +1,4 @@
-package main
+package ledger
 
 import (
 	"context"
@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/Monrevil/simplified-market-ledger/api"
-	"github.com/Monrevil/simplified-market-ledger/investors"
-	"github.com/Monrevil/simplified-market-ledger/invoices"
-	"github.com/Monrevil/simplified-market-ledger/issuers"
-	"github.com/Monrevil/simplified-market-ledger/repository/postgres"
-	"github.com/Monrevil/simplified-market-ledger/transactions"
+	"github.com/Monrevil/simplified-market-ledger/ledger/investors"
+	"github.com/Monrevil/simplified-market-ledger/ledger/invoices"
+	"github.com/Monrevil/simplified-market-ledger/ledger/issuers"
+	"github.com/Monrevil/simplified-market-ledger/ledger/repository/postgres"
+	"github.com/Monrevil/simplified-market-ledger/ledger/transactions"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -34,10 +34,11 @@ func Serve(address string) {
 	logger, _ := zap.NewDevelopment()
 	defer logger.Sync() // flushes buffer, if any
 	zapLogger := logger.Sugar()
+	zapLogger.Infof("Starting a gRPC server on %s...", address)
 
 	conn, err := net.Listen("tcp", address)
 	if err != nil {
-		zapLogger.Fatalf("Cannot listen to address %s", address)
+		zapLogger.Fatalf("Cannot listen on address %s", address)
 	}
 	s := grpc.NewServer(grpc_middleware.WithUnaryServerChain(
 		loggingMiddleware(logger),
@@ -112,7 +113,7 @@ func (l *Ledger) SellInvoice(ctx context.Context, req *api.SellInvoiceReq) (*api
 	}
 
 	in := invoices.Invoice{}
-	in.Value = int(req.InvoiceValue)
+	in.Value = req.InvoiceValue
 	in.IssuerId = req.IssuerID
 	in.OwnerID = req.IssuerID
 	in.Status = invoices.Available
@@ -131,7 +132,7 @@ func (l *Ledger) SellInvoice(ctx context.Context, req *api.SellInvoiceReq) (*api
 }
 
 func (l *Ledger) GetInvoice(ctx context.Context, req *api.GetInvoiceReq) (*api.Invoice, error) {
-	invoice, err := l.r.Begin().Invoices.GetInvoice(uint(req.InvoiceID))
+	invoice, err := l.r.Begin().Invoices.GetInvoice(req.InvoiceID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -165,7 +166,7 @@ func (l *Ledger) NewInvestor(ctx context.Context, req *api.NewInvestorReq) (*api
 	tx := l.r.Begin()
 
 	investor := investors.Investor{
-		Balance: int(req.Balance),
+		Balance: req.Balance,
 	}
 	if err := tx.Investors.NewInvestor(&investor); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -184,18 +185,18 @@ func (l *Ledger) PlaceBid(ctx context.Context, req *api.PlaceBidReq) (*api.Place
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, err.Error())
 	}
-	if investor.Balance-int(req.Amount) < 0 {
+	if investor.Balance-req.Amount < 0 {
 		return nil, status.Errorf(codes.InvalidArgument,
 			"can not bid %d, with %d balance. Not enough funds", req.Amount, investor.Balance)
 	}
-	invoice, err := tx.Invoices.GetInvoice(uint(req.InvoiceID))
+	invoice, err := tx.Invoices.GetInvoice(req.InvoiceID)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, err.Error())
 	}
 	if invoice.Status != invoices.Available {
 		return nil, status.Error(codes.PermissionDenied, "Invoice is not available for sale")
 	}
-	err = tx.Investors.ReserveBalance(&investor, int(req.Amount))
+	err = tx.Investors.ReserveBalance(&investor, req.Amount)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -205,21 +206,20 @@ func (l *Ledger) PlaceBid(ctx context.Context, req *api.PlaceBidReq) (*api.Place
 	// balance that wasn’t used, then investor-3 available balance increases by €200.
 
 	transactionID, err := tx.Transactions.CreateTransaction(transactions.Transaction{
-		Amount:     int(req.Amount),
+		Amount:     req.Amount,
 		Status:     transactions.Pending,
-		InvoiceID:  uint(req.InvoiceID),
+		InvoiceID:  req.InvoiceID,
 		IssuerID:   invoice.IssuerId,
-		InvestorID: uint(req.InvestorID),
+		InvestorID: req.InvestorID,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	if invoice.Value > int(req.Amount) {
-		// TODO: Should be transactional
-		tx.Investors.ReleaseBalance(&investor, int(req.Amount))
+	if invoice.Value > req.Amount {
+		tx.Investors.ReleaseBalance(&investor, req.Amount)
 		tx.Transactions.UpdateTransaction(transactions.Transaction{
-			ID:       uint(transactionID),
+			ID:       transactionID,
 			Status:   transactions.Rejected,
 			UpdateAt: time.Now(),
 		})
@@ -228,8 +228,8 @@ func (l *Ledger) PlaceBid(ctx context.Context, req *api.PlaceBidReq) (*api.Place
 	}
 
 	// If bid amount is not the exact value of an invoice - release surplus to the available balance
-	if invoice.Value != int(req.Amount) {
-		tx.Investors.ReleaseBalance(&investor, int(req.Amount)-invoice.Value)
+	if invoice.Value != req.Amount {
+		tx.Investors.ReleaseBalance(&investor, req.Amount-invoice.Value)
 	}
 	invoice.Status = invoices.Financed
 	if err := tx.Invoices.UpdateInvoice(invoice); err != nil {
@@ -248,7 +248,7 @@ func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*ap
 	tx := l.r.Begin()
 
 	l.log.Infof("Trying to approve financing on transaction %v", req.TransactionID)
-	transaction, err := tx.Transactions.GetTransaction(uint(req.TransactionID))
+	transaction, err := tx.Transactions.GetTransaction(req.TransactionID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -274,11 +274,12 @@ func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*ap
 	invoice.Financed = time.Now()
 
 	transaction.Status = transactions.Approved
+	transaction.UpdateAt = time.Now()
 	tx.Transactions.UpdateTransaction(transaction)
 	// TODO Should be Transactional:
 	tx.Invoices.UpdateInvoice(invoice)
 	tx.Investors.ReduceReservedBalance(&investor, transaction.Amount)
-	tx.Issuers.ChangeBalance(transaction.IssuerID, transaction.Amount)
+	tx.Issuers.IncreaseBalance(transaction.IssuerID, transaction.Amount)
 	tx.Commit()
 	return &api.ApproveResp{
 		Msg: fmt.Sprintf("Approved financing on invoice %v", invoice.ID),
@@ -287,7 +288,7 @@ func (l *Ledger) ApproveFinancing(ctx context.Context, req *api.ApproveReq) (*ap
 
 func (l *Ledger) ReverseFinancing(ctx context.Context, req *api.ReverseReq) (*api.ReverseResp, error) {
 	tx := l.r.Begin()
-	transaction, err := tx.Transactions.GetTransaction(uint(req.TransactionID))
+	transaction, err := tx.Transactions.GetTransaction(req.TransactionID)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -302,6 +303,7 @@ func (l *Ledger) ReverseFinancing(ctx context.Context, req *api.ReverseReq) (*ap
 	// TODO Should be Transactional:
 	tx.Investors.ReleaseBalance(&investor, transaction.Amount)
 	transaction.Status = transactions.Reversed
+	transaction.UpdateAt = time.Now()
 	tx.Transactions.UpdateTransaction(transaction)
 	tx.Invoices.UpdateInvoice(invoices.Invoice{ID: transaction.InvoiceID, Status: invoices.Available})
 

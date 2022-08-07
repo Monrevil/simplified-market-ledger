@@ -2,15 +2,9 @@ package invoices
 
 import "time"
 
-type Repository interface {
-	SaveInvoice(invoice Invoice) error
-	GetInvoice(invoiceID int) (Invoice, error)
-	UpdateInvoice(invoice Invoice) error
-}
-
 type Invoice struct {
-	ID         uint
-	Value      int
+	ID         int32
+	Value      int32
 	Status     InvoiceStatus
 	IssuerId   int32
 	OwnerID    int32

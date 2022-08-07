@@ -2,20 +2,14 @@ package transactions
 
 import "time"
 
-type Repository interface {
-	GetTransaction(transactionID uint) (Transaction, error)
-	CreateTransaction(tr Transaction) (int, error)
-	UpdateTransaction(tr Transaction) error
-}
-
 type Transaction struct {
-	ID        uint
-	Amount    int
+	ID        int32
+	Amount    int32
 	Status    Status
-	InvoiceID uint
+	InvoiceID int32
 	// IssuerID - issuer here is a party selling invoice. Beneficiary of the transaction.
 	IssuerID   int32
-	InvestorID uint
+	InvestorID int32
 	CreatedAt  time.Time
 	UpdateAt   time.Time
 }

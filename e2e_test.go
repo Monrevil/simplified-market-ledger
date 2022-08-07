@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"github.com/Monrevil/simplified-market-ledger/api"
-	"github.com/Monrevil/simplified-market-ledger/invoices"
+	"github.com/Monrevil/simplified-market-ledger/ledger"
+	"github.com/Monrevil/simplified-market-ledger/ledger/invoices"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -16,9 +17,11 @@ import (
 var conn *grpc.ClientConn
 var addr = "localhost:50051"
 
+// Tests in this file require running Postgres database.
+// Database can be launched with docker compose up command.
 func TestMain(m *testing.M) {
 	go func() {
-		Serve(addr)
+		ledger.Serve(addr)
 	}()
 
 	var err error
@@ -33,9 +36,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// Test should be run after docker compose up. With ledger
-// TODO: in order to run without using docker compose
-// 		 implement using https://github.com/ory/dockertest#using-dockertest
 func TestLedger(t *testing.T) {
 	c := api.NewLedgerClient(conn)
 

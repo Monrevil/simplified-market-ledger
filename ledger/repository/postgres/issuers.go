@@ -1,7 +1,7 @@
 package postgres
 
 import (
-	"github.com/Monrevil/simplified-market-ledger/issuers"
+	"github.com/Monrevil/simplified-market-ledger/ledger/issuers"
 	"gorm.io/gorm"
 )
 
@@ -19,7 +19,7 @@ func (p *PostgresIssuersRepository) GetIssuer(iss *issuers.Issuer) error {
 	return p.db.First(iss).Error
 }
 
-func (p *PostgresIssuersRepository) ChangeBalance(id int32, amount int) error {
+func (p *PostgresIssuersRepository) IncreaseBalance(id int32, amount int32) error {
 	issuer := &issuers.Issuer{ID: id}
 	return p.db.Model(issuer).Update("balance", gorm.Expr("balance + ?", amount)).Error
 }

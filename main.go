@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"log"
+
+	"github.com/Monrevil/simplified-market-ledger/ledger"
 )
 
 func main() {
-	log.Println("Starting a gRPC server...")
 	addr := fmt.Sprintf(":%d", 50051)
-	Serve(addr)
+	ledger.Serve(addr)
 }
