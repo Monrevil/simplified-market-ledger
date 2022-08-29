@@ -1,20 +1,66 @@
 # Simplified Market Ledger
 Tech challenge for AREX Markets hiring process.
 
-# Table of Contents
-- [Simplified Market Ledger](#simplified-market-ledger)
-- [Table of Contents](#table-of-contents)
-- [How to run](#how-to-run)
-  - [Copy this repository](#copy-this-repository)
-  - [Run docker compose up](#run-docker-compose-up)
-- [Test Workflow](#test-workflow)
-  - [With bloomrpc](#with-bloomrpc)
-  - [Steps](#steps)
-- [Build project locally](#build-project-locally)
-  - [To build docker image run](#to-build-docker-image-run)
-  - [To regenerate gRPC](#to-regenerate-grpc)
-- [Required endpoints](#required-endpoints)
-- [Matching algorithm](#matching-algorithm)
+I feel like there is much to improve in this implementation. Although I am not sure in what direction I should go.
+And at the moment it represents my technical skills more or less accurately.
+
+Some considerations I have at the moment:
+
+### Drop gorm, and use raw SQL instead.
+Orms can be convenient, but sometimes they can act in unpredictable way.
+And hard to use if you need union/inner joins, complex queries.
+
+### Unit test
+Postgres repository probably should be invoked through interface. So that ledger can be tested without the database layer.
+Initially it was, but I had some complications while trying to have transactional queries and interface in front of it.
+And having to deal with in-memory implementation of that seemed like a lot of meaningless extra work.
+
+Maybe I am wrong about that. Would appreciate feedback if this is the case.
+
+### Matching algorithm FIFO order
+I did find this part of requirements a bit confusing. As usually letting postgres mvcc handle order is good enough.
+Or if you actually need FIFO some kind of message broker is used, like RabbitMQ.
+Maybe I should have asked more questions about it, but also I felt like this was just as tech challenge.
+
+
+Simplest way to enforce it for PlaceBid endpoint should look like this (pseudocode):
+```go
+type Server struct {
+	requestQueue chan req
+}
+
+type req struct {
+	InvoiceID int
+}
+
+// Launch infinite loop to process all calls sent to the queue
+func StartMatchingAlgorithm(ch chan req) {
+	for {
+		request := <-ch
+		// do work
+	}
+}
+
+// Redirect all call to the queue
+func (s Server) PlaceBid(r req) {
+	s.requestQueue <- r
+}
+
+func main() {
+	// make a buffered channel to serve as queue
+	// 500 is just a first number that came to mind, it should be enough to process calls most of the time
+	// otherwise should be stress tested and benchmarked
+	ch := make(chan req, 500)
+	go StartMatchingAlgorithm(ch)
+	s := Server{
+		requestQueue: ch,
+	}
+	s.Serve()
+}
+```
+
+This solution will put all calls from grpc into a single goroutine.
+Alternatively - to have individual queues for each unique invoice - a map with all queues is required, that will be locked by a mutex. And there will be a lot of allocations, garbage collection, mutex locking and unlocking. And that drives complexity of a solution quite a bit, while not necessarily leading to a better performance. Or, at least this is my understating at the moment.
 
 # How to run
 
@@ -22,16 +68,21 @@ Tech challenge for AREX Markets hiring process.
 ```
 git clone https://github.com/Monrevil/simplified-market-ledger
 ```
+```
+cd simplified-market-ledger
+```
 
 ## Run docker compose up
 ```
 docker compose up
 ```
+Wait for the app to start up.
 It will pull and run:
 - image with this project from ghcr.io
 - postgres image
   
 # Test Workflow
+Some general directions on how to test the code.
 
 ## With bloomrpc
 Download [bloomrpc](https://github.com/bloomrpc/bloomrpc)
@@ -40,7 +91,7 @@ brew install --cask bloomrpc
 ```
 ## Steps
 1. Press Import protos (Green + sign) 
-2. Chose proto file at `/api/api.proto/`. Ledger service will be running on port 5050
+2. Chose proto file at `/api/api.proto` Ledger service will be running on port 5050
 3. NewIssuer - create new issuer, get issuerID
 4. SellInvoice - sell invoice, using issuerID, get invoiceID
 5. NewInvestor - create new investor, get investorID
@@ -79,8 +130,3 @@ Derived from defined functionality:
 - An endpoint to place a bid
 - An endpoint to approve financing
 - An endpoint to revert financing
-
-# Matching algorithm
-Matching algorithm should be Singleton, and multiplex all connections (bid attempts) for a given invoice into a single goroutine. 
-It should check if Invoice is Available for financing, and if bid is valid.
-A go channel is used to enforce FIFO order.
